@@ -1,0 +1,264 @@
+---
+title: 【Python】毎朝Edgeで複数サイトを自動起動するスクリプト＋タスクスケジューラ登録方法
+tags:
+  - Python
+  - Windows
+  - Edge
+  - 自動化
+  - タスクスケジューラ
+private: false
+updated_at: ''
+id: null
+organization_url_name: null
+slide: false
+ignorePublish: false
+---
+
+## はじめに
+
+毎朝PCを開くたびに、ニュースサイト・業務ツール・SNSなど同じサイトを何個も開くのが面倒に感じたことはありませんか？
+
+本記事では、**Pythonスクリプト1本 + Windowsタスクスケジューラ**を使って、毎朝指定した時刻にMicrosoft Edgeで複数サイトを自動起動する方法を紹介します。
+
+### この記事でできること
+
+- 指定したURLを**Edgeの同一ウィンドウに複数タブで**一括オープン
+- **Seleniumや外部ライブラリが不要**（Python標準ライブラリのみ）
+- タスクスケジューラに登録して**毎朝自動実行**
+
+---
+
+## 環境
+
+- OS: Windows 10 / 11
+- Python: 3.8以上
+- ブラウザ: Microsoft Edge（インストール済み前提）
+
+---
+
+## スクリプト
+
+```python
+"""
+================================================
+  朝の自動サイト起動スクリプト（Edge固定版）
+  使い方: python morning_launcher_edge.py
+================================================
+"""
+
+import os
+import time
+import sys
+import subprocess
+
+# ============================================================
+#  ★ ここを編集してください ★
+# ============================================================
+
+# 開きたいURLをリストに入れてください（上から順に同一ウィンドウのタブで開きます）
+URLS = [
+    "https://www.google.com",
+    "https://www.yahoo.co.jp",
+    "https://github.com",
+    # "https://example.com",  # 追加したい場合はここに書く
+]
+
+# 各タブを開く間隔（秒）— 0.5〜1 推奨
+INTERVAL = 0.5
+
+# ============================================================
+#  Edgeのパス（通常は変更不要）
+# ============================================================
+
+EDGE_PATHS = [
+    r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+    r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+]
+
+# ============================================================
+#  メイン処理
+# ============================================================
+
+def find_edge() -> str:
+    for path in EDGE_PATHS:
+        if os.path.exists(path):
+            return path
+    return None
+
+
+def open_tabs():
+    exe = find_edge()
+
+    if exe is None:
+        print("[エラー] Microsoft Edge が見つかりませんでした。")
+        print("  EDGE_PATHS のパスを確認してください。")
+        sys.exit(1)
+
+    if not URLS:
+        print("[エラー] URLS リストが空です。URLを追加してください。")
+        sys.exit(1)
+
+    print(f"ブラウザ : Microsoft Edge")
+    print(f"タブ数   : {len(URLS)} 個")
+    print("-" * 40)
+
+    # 1つ目のURLで新しいウィンドウを開く
+    print(f"[1/{len(URLS)}] 新規ウィンドウで開く: {URLS[0]}")
+    subprocess.Popen([exe, "--new-window", URLS[0]])
+    time.sleep(1.5)  # ウィンドウが立ち上がるのを待つ
+
+    # 2つ目以降は同じウィンドウの新しいタブで開く
+    for i, url in enumerate(URLS[1:], start=2):
+        print(f"[{i}/{len(URLS)}] 新規タブで開く  : {url}")
+        subprocess.Popen([exe, url])
+        time.sleep(INTERVAL)
+
+    print("-" * 40)
+    print("完了！全タブを開きました。")
+
+
+if __name__ == "__main__":
+    open_tabs()
+```
+
+---
+
+## 仕組みの解説
+
+### なぜSeleniumを使わないのか
+
+Seleniumを使うと、WebDriverのバージョン管理が必要になり手間がかかります。
+今回は `subprocess.Popen` でEdgeの実行ファイルを直接呼び出すだけなので、**追加インストール不要**です。
+
+### タブを同一ウィンドウに開く方法
+
+| 引数 | 動作 |
+|---|---|
+| `--new-window <URL>` | 新規ウィンドウで開く（1枚目に使用） |
+| `<URL>`（引数なし） | 既存のEdgeウィンドウに新規タブで追加 |
+
+2枚目以降にURLだけを渡すと、Edgeが起動済みのウィンドウに自動的にタブを追加してくれます。
+1枚目と2枚目の間に `time.sleep(1.5)` を入れているのは、ウィンドウが立ち上がるのを待つためです。
+
+---
+
+## 使い方
+
+### 1. URLを編集する
+
+スクリプト上部の `URLS` リストを書き換えます。
+
+```python
+URLS = [
+    "https://www.google.com",
+    "https://news.yahoo.co.jp",
+    "https://github.com",
+    "https://your-favorite-site.com",  # 好きなだけ追加OK
+]
+```
+
+### 2. 動作確認
+
+ターミナル（コマンドプロンプトやPowerShell）で実行します。
+
+```bash
+python morning_launcher_edge.py
+```
+
+Edgeが起動し、URLが順番にタブで開けばOKです。
+
+---
+
+## タスクスケジューラへの登録
+
+毎朝自動で実行するには、Windowsのタスクスケジューラに登録します。
+
+### Step 1: タスクスケジューラを開く
+
+`Win + R` → `taskschd.msc` と入力してEnter
+
+### Step 2: 基本タスクの作成
+
+右側の「操作」パネルから **「基本タスクの作成...」** をクリック
+
+| 項目 | 入力例 |
+|---|---|
+| 名前 | 朝のサイト起動 |
+| 説明 | 毎朝Edgeで指定サイトを開く |
+
+### Step 3: トリガーの設定
+
+- 実行タイミング: **毎日**
+- 開始時刻: **07:00:00**（好みの時刻に）
+- 間隔: **1日ごと**
+
+### Step 4: 操作の設定
+
+「プログラムの開始」を選択し、以下を入力します。
+
+| 項目 | 入力値 |
+|---|---|
+| プログラム | `python` |
+| 引数の追加 | `C:\Users\あなた\Desktop\morning_launcher_edge.py` |
+| 開始場所 | `C:\Users\あなた\Desktop\`（任意） |
+
+:::note warn
+**「引数の追加」には .py ファイルのフルパスを入力してください。**
+パスにスペースが含まれる場合は `"C:\path with space\..."` のようにダブルクォートで囲みます。
+:::
+
+### Step 5: 完了 & 動作確認
+
+「完了」ボタンを押してタスクを保存。
+
+タスク一覧で作成したタスクを右クリック → **「実行」** を押すとすぐに動作確認できます。
+
+### Step 6: スリープ中でも動かす（任意）
+
+タスクを右クリック → 「プロパティ」 → 「条件」タブ
+
+- ☑ 「タスクを実行するためにスリープを解除する」
+
+「設定」タブ
+
+- ☑ 「スケジュールされた時刻に実行できなかった場合、すぐに実行する」
+
+---
+
+## トラブルシューティング
+
+**Edgeが見つからないエラーが出る場合**
+
+Edgeのインストールパスを確認して `EDGE_PATHS` に追記してください。
+
+```python
+# Edgeの実際のパスを確認するコマンド（PowerShell）
+Get-Command msedge | Select-Object -ExpandProperty Source
+```
+
+**タブが別ウィンドウで開いてしまう場合**
+
+1枚目のウィンドウが立ち上がる前に2枚目以降を開こうとしている可能性があります。
+`time.sleep(1.5)` の値を `2.0` や `3.0` に増やしてみてください。
+
+---
+
+## まとめ
+
+| 項目 | 内容 |
+|---|---|
+| 外部ライブラリ | 不要（標準ライブラリのみ） |
+| WebDriver | 不要 |
+| 対応ブラウザ | Microsoft Edge |
+| OS | Windows 10 / 11 |
+| 自動化方法 | Windowsタスクスケジューラ |
+
+シンプルな構成ながら、毎朝の手間を確実に削減できます。
+URLを増やすだけで好きなサイトを追加できるので、ぜひカスタマイズして使ってみてください。
+
+---
+
+## 参考
+
+- [subprocess — Python公式ドキュメント](https://docs.python.org/ja/3/library/subprocess.html)
+- [タスクスケジューラ — Microsoft公式ドキュメント](https://learn.microsoft.com/ja-jp/windows/win32/taskschd/task-scheduler-start-page)
