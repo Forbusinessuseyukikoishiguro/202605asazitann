@@ -1,0 +1,479 @@
+---
+title: 【Python超入門】毎朝ChromeとEdgeで複数サイトを自動起動！コード1行ずつふりがな付きで解説
+tags:
+  - Python
+  - Windows
+  - 自動化
+  - 初心者
+  - タスクスケジューラ
+private: false
+updated_at: ''
+id: null
+organization_url_name: null
+slide: false
+ignorePublish: false
+---
+
+## はじめに
+
+毎朝PCを開くたびに、同じサイトを何個も手動で開いていませんか？
+
+本記事では **Python標準ライブラリだけ**（Seleniumなし・WebDriverなし）で、ChromeまたはEdgeを自動起動するスクリプトを作ります。
+
+さらに、**コードを1行ずつ**
+- ふりがな（読み方）
+- 意味
+- 文法ポイント
+- 応用できること
+
+の4点セットで丁寧に解説します。Pythonをこれから学ぶ方にも読めるように書きました。
+
+---
+
+## 完成スクリプト（全文）
+
+まず完成形を見てから、1行ずつ分解します。
+
+```python
+import os
+import time
+import sys
+import subprocess
+
+URLS = [
+    "https://www.google.com",
+    "https://www.yahoo.co.jp",
+    "https://github.com",
+]
+
+BROWSER = "chrome"   # "edge" に変えるとEdgeで開く
+INTERVAL = 0.5
+
+BROWSER_PATHS = {
+    "chrome": [
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+    ],
+    "edge": [
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+    ],
+}
+
+def find_browser_path(browser: str) -> str:
+    paths = BROWSER_PATHS.get(browser.lower(), [])
+    for path in paths:
+        if os.path.exists(path):
+            return path
+    return None
+
+def open_tabs(urls: list, browser: str, interval: float):
+    browser = browser.lower()
+    exe = find_browser_path(browser)
+
+    if exe is None:
+        print(f"[エラー] {browser} が見つかりませんでした。")
+        sys.exit(1)
+
+    if not urls:
+        print("[エラー] URLS リストが空です。")
+        sys.exit(1)
+
+    print(f"ブラウザ : {browser.upper()}")
+    print(f"タブ数   : {len(urls)} 個")
+    print("-" * 40)
+
+    print(f"[1/{len(urls)}] 新規ウィンドウで開く: {urls[0]}")
+    subprocess.Popen([exe, "--new-window", urls[0]])
+    time.sleep(1.5)
+
+    for i, url in enumerate(urls[1:], start=2):
+        print(f"[{i}/{len(urls)}] 新規タブで開く  : {url}")
+        subprocess.Popen([exe, url])
+        time.sleep(interval)
+
+    print("-" * 40)
+    print("完了！全タブを開きました。")
+
+if __name__ == "__main__":
+    if len(sys.argv) >= 2:
+        BROWSER = sys.argv[1]
+    open_tabs(URLS, BROWSER, INTERVAL)
+```
+
+---
+
+## 1行ずつ解説
+
+### ブロック①：import（インポート）— 道具箱を用意する
+
+```python
+import os
+```
+
+| 項目 | 内容 |
+|---|---|
+| ふりがな | `import`（インポート）`os`（オーエス） |
+| 意味 | OSの機能を使えるようにする。ファイルの存在確認などに使う |
+| 文法 | `import モジュール名` でPython標準の部品を読み込む |
+| 応用 | `os.getcwd()`（現在のフォルダ取得）、`os.makedirs()`（フォルダ作成）なども使える |
+
+```python
+import time
+```
+
+| 項目 | 内容 |
+|---|---|
+| ふりがな | `time`（タイム） |
+| 意味 | 時間に関する機能を使えるようにする |
+| 文法 | 同じく `import モジュール名` |
+| 応用 | `time.sleep(3)` で3秒待機。`time.time()` で現在時刻を数値で取得 |
+
+```python
+import sys
+```
+
+| 項目 | 内容 |
+|---|---|
+| ふりがな | `sys`（システム） |
+| 意味 | Pythonの実行環境（システム）に関する機能を使えるようにする |
+| 文法 | 同じく `import モジュール名` |
+| 応用 | `sys.argv`（コマンドライン引数の取得）、`sys.exit(1)`（エラー終了）など |
+
+```python
+import subprocess
+```
+
+| 項目 | 内容 |
+|---|---|
+| ふりがな | `subprocess`（サブプロセス） |
+| 意味 | Pythonから外部プログラム（今回はブラウザ）を起動するための機能 |
+| 文法 | 同じく `import モジュール名` |
+| 応用 | `subprocess.Popen()`（非同期起動）、`subprocess.run()`（同期実行・結果取得）など |
+
+:::note info
+**なぜSeleniumを使わないの？**
+Seleniumはブラウザを「操作」するライブラリです。今回はただ「開く」だけなので、`subprocess` で直接ブラウザを起動する方がシンプルで、追加インストール不要です。
+:::
+
+---
+
+### ブロック②：定数（定数）— 設定値をまとめる
+
+```python
+URLS = [
+    "https://www.google.com",
+    "https://www.yahoo.co.jp",
+    "https://github.com",
+]
+```
+
+| 項目 | 内容 |
+|---|---|
+| ふりがな | `URLS`（ユーアールエルズ） |
+| 意味 | 朝に開きたいURLを**リスト**（複数の値をまとめたもの）で定義する |
+| 文法 | `変数名 = [値1, 値2, ...]` がリスト。大文字の変数名は「定数（変更しない値）」を表す慣習 |
+| 応用 | URLを増やすには行を追加するだけ。`len(URLS)` でURL数を取得できる |
+
+```python
+BROWSER = "chrome"   # "edge" に変えるとEdgeで開く
+```
+
+| 項目 | 内容 |
+|---|---|
+| ふりがな | `BROWSER`（ブラウザ） |
+| 意味 | 使用するブラウザを文字列で指定する。`"edge"` に変えるとEdgeが起動する |
+| 文法 | `#` から行末はコメント（実行されない説明文）。文字列は `"..."` または `'...'` で囲む |
+| 応用 | コマンドライン引数で上書きする仕組みも後で登場する |
+
+```python
+INTERVAL = 0.5
+```
+
+| 項目 | 内容 |
+|---|---|
+| ふりがな | `INTERVAL`（インターバル） |
+| 意味 | 各タブを開く間隔（秒）。0.5秒ずつ待ちながらタブを開く |
+| 文法 | 小数点のある数値は**float（浮動小数点数）**型 |
+| 応用 | 回線が遅い環境では `1.0` や `2.0` に増やすと安定する |
+
+---
+
+### ブロック③：BROWSER_PATHS（ブラウザのパス辞書）
+
+```python
+BROWSER_PATHS = {
+    "chrome": [
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+    ],
+    "edge": [
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+    ],
+}
+```
+
+| 項目 | 内容 |
+|---|---|
+| ふりがな | `BROWSER_PATHS`（ブラウザパス） |
+| 意味 | ブラウザ名をキー、インストール先の候補パスをリストで持つ**辞書（dict）** |
+| 文法 | `{キー: 値, ...}` が辞書。`r"..."` は**rawstring（ローストリング）**といい、`\` をそのまま文字として扱う（Windowsのパスに必須） |
+| 応用 | `BROWSER_PATHS["chrome"]` でChromeのパスリストを取得できる。ブラウザを追加したい場合はここに新しいキーを追加すればよい |
+
+:::note warn
+**`r"..."` を忘れずに！**
+`r` を付けないと `\P` や `\G` がエスケープ文字として誤解釈されます。Windowsのパスを文字列で書くときは必ず `r"..."` を使いましょう。
+:::
+
+---
+
+### ブロック④：find_browser_path 関数
+
+```python
+def find_browser_path(browser: str) -> str:
+```
+
+| 項目 | 内容 |
+|---|---|
+| ふりがな | `def`（デフ）`find_browser_path`（ファインドブラウザパス） |
+| 意味 | 「ブラウザのパスを探す」関数を定義する。`browser: str` は引数の型ヒント（文字列を受け取る）、`-> str` は戻り値が文字列であることを示す |
+| 文法 | `def 関数名(引数): ...` で関数を定義。型ヒントは省略可だが書くと読みやすくなる |
+| 応用 | 型ヒントを書いておくとVSCodeなどのエディタが補完・警告を出してくれる |
+
+```python
+    paths = BROWSER_PATHS.get(browser.lower(), [])
+```
+
+| 項目 | 内容 |
+|---|---|
+| ふりがな | `.get`（ゲット）`.lower`（ロワー） |
+| 意味 | 辞書から `browser` に対応するリストを取得する。`browser.lower()` で大文字・小文字を統一（"Chrome" でも "chrome" でも動く）。キーが存在しない場合は空リスト `[]` を返す |
+| 文法 | `辞書.get(キー, デフォルト値)` — キーがないときにエラーを出さない安全な取得方法 |
+| 応用 | `辞書[キー]` でも取得できるが、キーがないと `KeyError` が発生する。`get()` の方が安全 |
+
+```python
+    for path in paths:
+        if os.path.exists(path):
+            return path
+    return None
+```
+
+| 項目 | 内容 |
+|---|---|
+| ふりがな | `for`（フォー）`in`（イン）`os.path.exists`（オーエスパスイグジスツ）`return`（リターン） |
+| 意味 | パスの候補を1つずつ確認して、実際に存在するパスがあればそれを返す。どれも存在しない場合は `None` を返す |
+| 文法 | `for 変数 in リスト:` でリストの中身を1つずつ取り出す。`os.path.exists(path)` はファイルが存在すれば `True`、なければ `False` を返す |
+| 応用 | `return` に達した時点で関数が終了する。複数の候補を順番に試す「フォールバック」パターンの典型例 |
+
+---
+
+### ブロック⑤：open_tabs 関数 — タブを開く本体
+
+```python
+def open_tabs(urls: list, browser: str, interval: float):
+```
+
+| 項目 | 内容 |
+|---|---|
+| 意味 | タブを順番に開くメインの関数。3つの引数（URLリスト・ブラウザ名・間隔）を受け取る |
+| 文法 | 引数を複数受け取るときは `,` で区切る |
+| 応用 | 引数にデフォルト値を設定することもできる（例: `interval: float = 0.5`） |
+
+```python
+    browser = browser.lower()
+    exe = find_browser_path(browser)
+```
+
+| 項目 | 内容 |
+|---|---|
+| ふりがな | `.lower()`（ロワー）`exe`（エグゼ） |
+| 意味 | ブラウザ名を小文字に統一してから、先ほどの関数でパスを探す |
+| 文法 | 関数の中で別の関数を呼ぶことができる（関数の入れ子） |
+| 応用 | `exe` は実行ファイル（executable）の略として変数名によく使われる |
+
+```python
+    if exe is None:
+        print(f"[エラー] {browser} が見つかりませんでした。")
+        sys.exit(1)
+```
+
+| 項目 | 内容 |
+|---|---|
+| ふりがな | `is None`（イズ ナン）`sys.exit`（システムイグジット） |
+| 意味 | ブラウザが見つからなかった場合はエラーメッセージを表示してプログラムを終了する |
+| 文法 | `is None` は「値がNoneである」という判定。`== None` より `is None` を使う方がPythonの慣習。`sys.exit(1)` の `1` はエラー終了を意味する（`0` は正常終了） |
+| 応用 | `sys.exit()` はスクリプトのどこからでも即座に終了できる。バッチ処理のエラーハンドリングに便利 |
+
+```python
+    if not urls:
+        print("[エラー] URLS リストが空です。")
+        sys.exit(1)
+```
+
+| 項目 | 内容 |
+|---|---|
+| ふりがな | `not urls`（ノット ユーアールエルズ） |
+| 意味 | URLリストが空の場合はエラーを出して終了する |
+| 文法 | `not リスト` はリストが空 `[]` のときに `True` になる。Pythonでは空のリスト・文字列・0などは `False` として扱われる（**Falsy**な値） |
+| 応用 | `if not 変数:` パターンは「値が空・ゼロ・Noneのどれかなら」という判定をまとめて書ける便利な書き方 |
+
+```python
+    print(f"ブラウザ : {browser.upper()}")
+    print(f"タブ数   : {len(urls)} 個")
+    print("-" * 40)
+```
+
+| 項目 | 内容 |
+|---|---|
+| ふりがな | `f"..."`（エフストリング）`.upper()`（アッパー）`len()`（レン） |
+| 意味 | 実行状況をターミナルに表示する。`f"..."` は**f文字列**といい、`{}` の中に変数や式を埋め込める |
+| 文法 | `f"文字列{変数}文字列"` — Python 3.6以降で使える便利な文字列フォーマット。`"−" * 40` は `"−"` を40回繰り返した文字列を作る |
+| 応用 | `f"{値:.2f}"` で小数点以下2桁に丸めるなど、フォーマット指定も `{}` 内に書ける |
+
+```python
+    print(f"[1/{len(urls)}] 新規ウィンドウで開く: {urls[0]}")
+    subprocess.Popen([exe, "--new-window", urls[0]])
+    time.sleep(1.5)
+```
+
+| 項目 | 内容 |
+|---|---|
+| ふりがな | `subprocess.Popen`（サブプロセス ポーペン）`urls[0]`（ユーアールエルズ ゼロ）`time.sleep`（タイムスリープ） |
+| 意味 | 1枚目のURLを**新規ウィンドウ**で開き、1.5秒待つ |
+| 文法 | `リスト[0]` でリストの1番目（インデックスは0始まり）の要素を取得。`subprocess.Popen([コマンド, 引数1, 引数2, ...])` でプログラムを起動する |
+| 応用 | `Popen` は起動したまま次の処理に進む（非同期）。起動完了を待ちたい場合は `subprocess.run()` を使う |
+
+```python
+    for i, url in enumerate(urls[1:], start=2):
+        print(f"[{i}/{len(urls)}] 新規タブで開く  : {url}")
+        subprocess.Popen([exe, url])
+        time.sleep(interval)
+```
+
+| 項目 | 内容 |
+|---|---|
+| ふりがな | `enumerate`（エニュメレート）`urls[1:]`（ユーアールエルズ イチコロン） |
+| 意味 | 2枚目以降のURLを順番に新規タブで開く |
+| 文法 | `urls[1:]` は**スライス**といい「インデックス1以降の全要素」を取り出す。`enumerate(リスト, start=2)` は「番号（2から）と要素のペア」を返す。`for i, url in ...` で番号と要素を同時に受け取る（**アンパック**） |
+| 応用 | `urls[:3]` は「最初の3件」、`urls[-1]` は「最後の1件」など、スライスは様々な使い方がある |
+
+---
+
+### ブロック⑥：エントリーポイント
+
+```python
+if __name__ == "__main__":
+```
+
+| 項目 | 内容 |
+|---|---|
+| ふりがな | `__name__`（ダンダーネーム）`__main__`（ダンダーメイン） |
+| 意味 | このファイルが**直接実行された場合のみ**、以下のコードを実行する |
+| 文法 | Pythonファイルが直接実行されると `__name__` に `"__main__"` がセットされる。別のファイルから `import` された場合はセットされないので、この条件で「直接実行時だけ動かしたい処理」を分けられる |
+| 応用 | ライブラリとして `import` されることも、直接実行されることも想定するスクリプトに必須のパターン |
+
+```python
+    if len(sys.argv) >= 2:
+        BROWSER = sys.argv[1]
+```
+
+| 項目 | 内容 |
+|---|---|
+| ふりがな | `sys.argv`（システム エーアールジーブイ）`len`（レン） |
+| 意味 | コマンドラインから引数が渡された場合、それをブラウザ名として使う |
+| 文法 | `sys.argv` はコマンドライン引数のリスト。`sys.argv[0]` はファイル名自身、`sys.argv[1]` が最初の引数。`len(sys.argv) >= 2` で引数があるかを確認する |
+| 応用 | `python morning_launcher.py edge` と実行すると `BROWSER = "edge"` になる。コマンドライン引数を増やせばさらに柔軟な設定ができる |
+
+```python
+    open_tabs(URLS, BROWSER, INTERVAL)
+```
+
+| 項目 | 内容 |
+|---|---|
+| 意味 | 設定した値を引数として `open_tabs` 関数を呼び出し、実際にタブを開く |
+| 文法 | 定義した関数を呼び出す。引数は定義時と同じ順番で渡す |
+| 応用 | 引数名を明示して `open_tabs(urls=URLS, browser=BROWSER, interval=INTERVAL)` と書くこともでき、順番を変えられる（キーワード引数） |
+
+---
+
+## 実行方法
+
+### Chrome で開く
+
+```bash
+python morning_launcher.py
+```
+
+### Edge で開く
+
+```bash
+python morning_launcher.py edge
+```
+
+---
+
+## タスクスケジューラに登録して毎朝自動起動
+
+### Step 1: タスクスケジューラを開く
+
+`Win + R` → `taskschd.msc` → Enter
+
+### Step 2: 基本タスクの作成
+
+右パネルの「基本タスクの作成...」をクリック
+
+| 項目 | 入力例 |
+|---|---|
+| 名前 | 朝のサイト起動 |
+| 説明 | 毎朝ブラウザで指定サイトを開く |
+
+### Step 3: トリガー設定
+
+| 項目 | 設定値 |
+|---|---|
+| 実行タイミング | 毎日 |
+| 開始時刻 | 07:00:00（好みの時刻） |
+| 間隔 | 1日ごと |
+
+### Step 4: 操作設定
+
+| 項目 | 設定値 |
+|---|---|
+| プログラム | `python` |
+| 引数の追加 | `C:\Users\あなた\Desktop\morning_launcher.py` |
+
+:::note warn
+パスにスペースが含まれる場合は `"C:\path with space\morning_launcher.py"` のようにダブルクォートで囲みます。
+:::
+
+### Step 5: 完了 & 動作確認
+
+「完了」後、タスクを右クリック → **「実行」** で即時テストできます。
+
+---
+
+## まとめ：今回登場したPythonの知識
+
+| 概念 | 使った場所 | ポイント |
+|---|---|---|
+| `import` | 冒頭4行 | 標準ライブラリを読み込む |
+| リスト `[]` | `URLS` | 複数の値をまとめる |
+| 辞書 `{}` | `BROWSER_PATHS` | キーと値のペアで管理 |
+| rawstring `r"..."` | パス文字列 | `\` をそのまま扱う |
+| 関数 `def` | 2つの関数 | 処理をまとめて再利用する |
+| `for` ループ | タブを開く処理 | リストを1つずつ処理する |
+| スライス `[1:]` | `urls[1:]` | リストの一部を取り出す |
+| `enumerate` | タブを開く処理 | 番号と要素を同時に取得する |
+| f文字列 `f"..."` | `print` 各所 | 変数を文字列に埋め込む |
+| `__name__ == "__main__"` | エントリーポイント | 直接実行時だけ動かす |
+| `sys.argv` | エントリーポイント | コマンドライン引数を受け取る |
+
+---
+
+## おわりに
+
+今回のスクリプトは **Seleniumもwebdriverも不要**で、Pythonさえあれば動きます。
+コードは短いですが、リスト・辞書・関数・ループ・コマンドライン引数など、Pythonの基本がぎゅっと詰まっています。
+
+URLを書き換えるだけで自分専用の「朝のルーティン自動化」が完成するので、ぜひ使ってみてください！
